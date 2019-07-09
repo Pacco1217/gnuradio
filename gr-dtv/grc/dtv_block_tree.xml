@@ -90,6 +90,7 @@
       <block>dtv_dvbt_demap</block>
       <block>dtv_dvbt_bit_inner_deinterleaver</block>
       <block>dtv_dvbt_viterbi_decoder</block>
+      <block>dtv_dvbt_viterbi_decoder_jit</block>
       <block>dtv_dvbt_convolutional_deinterleaver</block>
       <block>dtv_dvbt_reed_solomon_dec</block>
       <block>dtv_dvbt_energy_descramble</block>

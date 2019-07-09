@@ -136,17 +136,17 @@ ENDIF()
 # since it will actually be used for this purposes starting in CMake 3.1.
 
 IF(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    SET(CMAKE_CXX_STANDARD 98)
+    SET(CMAKE_CXX_STANDARD 14)
 ELSEIF(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    SET(CMAKE_CXX_STANDARD 98)
+    SET(CMAKE_CXX_STANDARD 14)
 ELSEIF(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    SET(CMAKE_CXX_STANDARD 98)
+    SET(CMAKE_CXX_STANDARD 14)
 ELSE()
     message(warning "C++ standard could not be set because compiler is not GNU, Clang or MSVC.")
 ENDIF()
 
 IF(CMAKE_C_COMPILER_ID STREQUAL "GNU")
-    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11")
 ELSEIF(CMAKE_C_COMPILER_ID MATCHES "Clang")
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
 ELSEIF(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
@@ -258,6 +258,34 @@ MESSAGE(STATUS "Compiler Flags: ${COMPILER_INFO}")
 string(REPLACE "\n" " \\n" cmake_c_compiler_version ${cmake_c_compiler_version})
 string(REPLACE "\n" " \\n" cmake_cxx_compiler_version ${cmake_cxx_compiler_version})
 string(REPLACE "\n" " \\n" COMPILER_INFO ${COMPILER_INFO})
+
+########################################################################
+# Jit configuration
+########################################################################
+
+if (JIT_ENABLE)
+    message(STATUS "")
+    message(STATUS "Jit configuration")
+    if(JIT_COMPILER STREQUAL "easy")
+        message(STATUS "Configuration for Easy::JIT")
+        if(NOT DEFINED EASY_BIN_PATH)
+            set(EASY_BIN_PATH "/home/pacco/TB/easyjit-build/bin")
+        endif()
+        if(NOT DEFINED EASY_INCLUDE_PATH)
+            set(EASY_INCLUDE_PATH "/home/pacco/TB/easy-just-in-time/include")
+        endif()
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xclang -disable-O0-optnone -Xclang -load -Xclang ${EASY_BIN_PATH}/EasyJitPass.so -I${EASY_INCLUDE_PATH}")
+        #TODO LINKER FLAG -lEasyJitRuntime
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lEasyJitRuntime")
+        ADD_DEFINITIONS(-DEASY_JIT)
+        
+    else()
+        message(STATUS "No jit compiler defined => using clangJIT")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fjit")
+        ADD_DEFINITIONS(-DCLANG_JIT)
+        #message(${CMAKE_CXX_FLAGS})
+    endif()
+endif()
 
 ########################################################################
 # Install directories
@@ -379,6 +407,11 @@ GR_REGISTER_COMPONENT("testing-support" ENABLE_TESTING
 if(CPPUNIT_FOUND AND NOT "${CPPUNIT_VERSION}" VERSION_LESS "1.14.0")
     message(WARNING "\nWarning: CppUnit version is ${CPPUNIT_VERSION} which requires C++11 for building. Trying to set CMake internally to use C++11 ...")
     SET(CMAKE_CXX_STANDARD 11)
+endif()
+
+if(JIT_ENABLE)
+    message(WARNING "\nWarning: Jit require C++ 14")
+    SET(CMAKE_CXX_STANDARD 14)
 endif()
 
 # if cmake version is < 3.1, explicitly set C++ standard to use.

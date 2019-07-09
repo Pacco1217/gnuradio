@@ -98,6 +98,7 @@ list(APPEND dtv_sources
   catv/catv_randomizer_bb_impl.cc
   catv/catv_frame_sync_enc_bb_impl.cc
   catv/catv_trellis_enc_bb_impl.cc
+  dvbt/dvbt_viterbi_decoder_jit_impl.cc
 )
 
 list(APPEND dtv_libs
