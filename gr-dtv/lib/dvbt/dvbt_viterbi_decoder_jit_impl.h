@@ -124,12 +124,7 @@ namespace gr {
 #ifdef DTV_SSE2
       void dvbt_viterbi_chunks_init_sse2(__m128i *mm0, __m128i *pp0);
       void dvbt_viterbi_butterfly2_sse2(unsigned char *symbols, __m128i m0[], __m128i m1[], __m128i p0[], __m128i p1[]);
-      #ifdef CLANG_JIT
-            template <int ntraceback>
-            unsigned char dvbt_viterbi_get_output_sse2(__m128i *mm0, __m128i *pp0, unsigned char *outbuf);
-      #else
-            unsigned char dvbt_viterbi_get_output_sse2(__m128i *mm0, __m128i *pp0, int ntraceback, unsigned char *outbuf);
-      #endif
+      unsigned char dvbt_viterbi_get_output_sse2(__m128i *mm0, __m128i *pp0, int ntraceback, unsigned char *outbuf);
 #else
       void dvbt_viterbi_chunks_init_generic(unsigned char *mm0, unsigned char *pp0);
       void dvbt_viterbi_butterfly2_generic(unsigned char *symbols, unsigned char m0[], unsigned char m1[], unsigned char p0[], unsigned char p1[]);

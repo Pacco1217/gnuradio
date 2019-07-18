@@ -101,6 +101,8 @@ list(APPEND dtv_sources
   dvbt/dvbt_viterbi_decoder_jit_impl.cc
 )
 
+    
+
 list(APPEND dtv_libs
     gnuradio-runtime
     gnuradio-analog
@@ -129,6 +131,7 @@ else ()
     )
 endif(MSVC)
 
+
 if(SSE2_SUPPORTED)
     if(NOT MSVC)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2")
@@ -139,6 +142,7 @@ if(SSE2_SUPPORTED)
     endif()
     ADD_DEFINITIONS(-DDTV_SSE2)
 endif(SSE2_SUPPORTED)
+
 
 #Add Windows DLL resource file if using MSVC
 if(MSVC)

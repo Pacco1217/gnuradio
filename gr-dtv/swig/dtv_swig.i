@@ -147,7 +147,6 @@
 %include "gnuradio/dtv/catv_trellis_enc_bb.h"
 %include "gnuradio/dtv/dvbt_viterbi_decoder_jit.h"
 
-
 GR_SWIG_BLOCK_MAGIC2(dtv, atsc_deinterleaver);
 GR_SWIG_BLOCK_MAGIC2(dtv, atsc_depad);
 GR_SWIG_BLOCK_MAGIC2(dtv, atsc_derandomizer);

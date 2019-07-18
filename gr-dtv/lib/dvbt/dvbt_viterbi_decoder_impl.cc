@@ -456,6 +456,7 @@ namespace gr {
 #endif
 
       // Implement a circular buffer with the last ntraceback paths
+      //store_pos updated
       store_pos = (store_pos + 1) % ntraceback;
 
 #ifdef DTV_SSE2

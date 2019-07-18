@@ -27,8 +27,136 @@
 #include <easy/code_cache.h>
 #endif
 
+#include <stdio.h>
 #include <gnuradio/io_signature.h>
 #include "dvbt_viterbi_decoder_jit_impl.h"
+
+/*global function for JIT*/
+#ifdef CLANG_JIT
+  #ifdef DTV_SSE2
+    template <int ntraceback>
+    [[clang::jit]] unsigned char global_dvbt_viterbi_get_output_sse2(int *store_pos, unsigned char *mmresult, unsigned char ppresult[][64], __m128i *mm0, __m128i *pp0, unsigned char *outbuf){
+      int i;
+      int bestmetric, minmetric;
+      int beststate = 0;
+      int pos = 0;
+      *store_pos = (*store_pos + 1) % ntraceback;
+
+      for (i = 0; i < 4; i++) {
+        _mm_store_si128((__m128i *) &mmresult[i*16], mm0[i]);
+        _mm_store_si128((__m128i *) &ppresult[*store_pos][i*16], pp0[i]);
+      }
+      // Find out the best final state
+      bestmetric = mmresult[beststate];
+      minmetric = mmresult[beststate];
+
+      for (i = 1; i < 64; i++) {
+        if (mmresult[i] > bestmetric) {
+          bestmetric = mmresult[i];
+          beststate = i;
+        }
+        if (mmresult[i] < minmetric) {
+          minmetric = mmresult[i];
+        }
+      }
+
+      // Trace back
+      for (i = 0, pos = *store_pos; i < (ntraceback - 1); i++) {
+        // Obtain the state from the output bits
+        // by clocking in the output bits in reverse order.
+        // The state has only 6 bits
+        beststate = ppresult[pos][beststate] >> 2;
+        pos = (pos - 1 + ntraceback) % ntraceback;
+      }
+
+      // Store output byte
+      *outbuf = ppresult[pos][beststate];
+      // Zero out the path variable
+      // and prevent metric overflow
+      for (i = 0; i < 4; i++) {
+        pp0[i] = _mm_setzero_si128();
+        mm0[i] = _mm_sub_epi8(mm0[i], _mm_set1_epi8(minmetric));
+      }
+      return bestmetric;
+
+    }
+
+
+  #else
+    template <int n>
+    [[clang::jit]] unsigned char global_dvbt_viterbi_get_output_generic(){
+      int i;
+      int bestmetric, minmetric;
+      int beststate = 0;
+      int pos = 0;
+      int j;
+    }
+
+  #endif
+#endif
+#ifdef EASY_JIT
+  #ifdef DTV_SSE2
+    unsigned char
+    global_dvbt_viterbi_get_output_sse2(int *store_pos, unsigned char *mmresult, unsigned char ppresult[][64], __m128i *mm0, __m128i *pp0, unsigned char *outbuf, int ntraceback){
+      int i;
+      int bestmetric, minmetric;
+      int beststate = 0;
+      int pos = 0;
+      printf("easy1\n");
+      *store_pos = (*store_pos + 1) % ntraceback;
+
+      for (i = 0; i < 4; i++) {
+        _mm_store_si128((__m128i *) &mmresult[i*16], mm0[i]);
+        _mm_store_si128((__m128i *) &ppresult[*store_pos][i*16], pp0[i]);
+      }
+      // Find out the best final state
+      bestmetric = mmresult[beststate];
+      minmetric = mmresult[beststate];
+      printf("easy2\n");
+      for (i = 1; i < 64; i++) {
+        if (mmresult[i] > bestmetric) {
+          bestmetric = mmresult[i];
+          beststate = i;
+        }
+        if (mmresult[i] < minmetric) {
+          minmetric = mmresult[i];
+        }
+      }
+      printf("easy3\n");
+      // Trace back
+      for (i = 0, pos = *store_pos; i < (ntraceback - 1); i++) {
+        // Obtain the state from the output bits
+        // by clocking in the output bits in reverse order.
+        // The state has only 6 bits
+        beststate = ppresult[pos][beststate] >> 2;
+        pos = (pos - 1 + ntraceback) % ntraceback;
+      }
+      printf("easy4\n");
+      // Store output byte
+      *outbuf = ppresult[pos][beststate];
+      // Zero out the path variable
+      // and prevent metric overflow
+      for (i = 0; i < 4; i++) {
+        pp0[i] = _mm_setzero_si128();
+        mm0[i] = _mm_sub_epi8(mm0[i], _mm_set1_epi8(minmetric));
+      }
+      printf("easy5\n");
+      return bestmetric;
+    }
+
+  #else
+    unsigned char
+    global_dvbt_viterbi_get_output_generic(){
+      int i;
+      int bestmetric, minmetric;
+      int beststate = 0;
+      int pos = 0;
+      int j;
+      
+    }
+
+  #endif
+#endif
 
 namespace gr {
   namespace dtv {
@@ -94,6 +222,7 @@ namespace gr {
 
     __GR_ATTR_ALIGNED(16) unsigned char dvbt_viterbi_decoder_jit_impl::mmresult[64];
     __GR_ATTR_ALIGNED(16) unsigned char dvbt_viterbi_decoder_jit_impl::ppresult[TRACEBACK_MAX][64];
+
 
 #ifdef DTV_SSE2
     void
@@ -443,21 +572,38 @@ namespace gr {
 #endif
 
 #ifdef DTV_SSE2
-    #ifdef CLANG_JIT
-        template <int ntraceback>
-        [[clang::jit]] unsigned char
-        dvbt_viterbi_decoder_jit_impl::dvbt_viterbi_get_output_sse2(__m128i *mm0, __m128i *pp0, unsigned char *outbuf)
-        {
-    #else
-        unsigned char
-        dvbt_viterbi_decoder_jit_impl::dvbt_viterbi_get_output_sse2(__m128i *mm0, __m128i *pp0,int ntraceback, unsigned char *outbuf)
-        {
-    #endif
+    unsigned char
+    dvbt_viterbi_decoder_jit_impl::dvbt_viterbi_get_output_sse2(__m128i *mm0, __m128i *pp0,int ntraceback, unsigned char *outbuf)
+    {
+      #ifdef CLANG_JIT
+      return global_dvbt_viterbi_get_output_sse2<ntraceback>(&store_pos, mmresult, ppresult, mm0, pp0, outbuf);
+      #endif
+      #ifdef EASY_JIT
+      static easy::Cache<> cache;
+      auto const &opt = cache.jit(global_dvbt_viterbi_get_output_sse2, 
+                                        std::placeholders::_1,
+                                        std::placeholders::_2,
+                                        std::placeholders::_3,
+                                        std::placeholders::_4,
+                                        std::placeholders::_5,
+                                        std::placeholders::_6,
+                                        ntraceback);
+      opt(&store_pos, mmresult, ppresult, mm0, pp0, outbuf);
+
+      #endif
 #else
     unsigned char
     dvbt_viterbi_decoder_jit_impl::dvbt_viterbi_get_output_generic(unsigned char *mm0, unsigned char *pp0, int ntraceback, unsigned char *outbuf)
     {
+
+      #ifdef CLANG_JIT
+
+      #elif EASY_JIT
+
+      #endif
+
 #endif
+      #ifndef JIT_ENABLE
       //  Find current best path
       int i;
       int bestmetric, minmetric;
@@ -528,6 +674,8 @@ namespace gr {
 #endif
 
       return bestmetric;
+
+    #endif //end of JIT_ENABLE
     }
 
     dvbt_viterbi_decoder_jit::sptr
@@ -654,7 +802,6 @@ namespace gr {
       int nblocks = 8 * noutput_items / (d_bsize * d_k);
       int out_count = 0;
 
-
       for (int m = 0; m < nstreams; m++) {
         const unsigned char *in = (const unsigned char *) input_items[m];
         unsigned char *out = (unsigned char *) output_items[m];
@@ -725,22 +872,9 @@ namespace gr {
                 unsigned char c;
 
 #ifdef DTV_SSE2
-
-                #ifdef EASY_JIT
-                                static easy::Cache<> cache;
-                                auto const &jit_opt = cache.jit(dvbt_viterbi_get_output_sse2, d_metric0, d_path0, std::placeholders::_1, &c);
-                                //auto jit_opt = easy::jit(dvbt_viterbi_get_output_sse2, d_metric0_generic, d_path0_generic, std::placeholders::_1, &c)
-                                jit_opt(d_ntraceback);
-
-                #elif CLANG_JIT
-
-                                dvbt_viterbi_get_output_sse2<d_ntraceback>(d_metric0, d_path0, &c);
-                #else
-                                dvbt_viterbi_get_output_sse2(d_metric0, d_path0, d_ntraceback, &c);
-                #endif
-
+              dvbt_viterbi_get_output_sse2(d_metric0, d_path0, d_ntraceback, &c);
 #else
-                dvbt_viterbi_get_output_generic(d_metric0_generic, d_path0_generic, d_ntraceback, &c);
+              dvbt_viterbi_get_output_generic(d_metric0_generic, d_path0_generic, d_ntraceback, &c);
 #endif
 
                 if (d_init == 0) {
