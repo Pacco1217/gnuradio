@@ -131,7 +131,7 @@ else ()
     )
 endif(MSVC)
 
-
+if(false)
 if(SSE2_SUPPORTED)
     if(NOT MSVC)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2")
@@ -142,6 +142,7 @@ if(SSE2_SUPPORTED)
     endif()
     ADD_DEFINITIONS(-DDTV_SSE2)
 endif(SSE2_SUPPORTED)
+endif(false)
 
 
 #Add Windows DLL resource file if using MSVC

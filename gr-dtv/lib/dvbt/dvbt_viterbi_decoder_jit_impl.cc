@@ -35,11 +35,14 @@
 #ifdef CLANG_JIT
   #ifdef DTV_SSE2
     template <int ntraceback>
-    [[clang::jit]] unsigned char global_dvbt_viterbi_get_output_sse2(int *store_pos, unsigned char *mmresult, unsigned char ppresult[][64], __m128i *mm0, __m128i *pp0, unsigned char *outbuf){
+    [[clang::jit]] unsigned char 
+    global_dvbt_viterbi_get_output_sse2(int *store_pos, unsigned char *mmresult, unsigned char ppresult[][64], __m128i *mm0, __m128i *pp0, unsigned char *outbuf)
+    {
       int i;
       int bestmetric, minmetric;
       int beststate = 0;
       int pos = 0;
+
       *store_pos = (*store_pos + 1) % ntraceback;
 
       for (i = 0; i < 4; i++) {
@@ -81,15 +84,60 @@
 
     }
 
-
   #else
-    template <int n>
-    [[clang::jit]] unsigned char global_dvbt_viterbi_get_output_generic(){
+    template <int ntraceback>
+    [[clang::jit]] unsigned char 
+    global_dvbt_viterbi_get_output_generic(int *store_pos, unsigned char *mmresult, unsigned char ppresult[][64], unsigned char *mm0, unsigned char *pp0, unsigned char *outbuf)
+    {
       int i;
       int bestmetric, minmetric;
       int beststate = 0;
       int pos = 0;
       int j;
+
+      *store_pos = (*store_pos + 1) % ntraceback;
+
+      for (i = 0; i < 4; i++) {
+        for (j = 0; j < 16; j++) {
+          mmresult[(i*16) + j] = mm0[(i*16) + j];
+          ppresult[*store_pos][(i*16) + j] = pp0[(i*16) + j];
+        }
+      }
+
+      // Find out the best final state
+      bestmetric = mmresult[beststate];
+      minmetric = mmresult[beststate];
+
+      for (i = 1; i < 64; i++) {
+        if (mmresult[i] > bestmetric) {
+          bestmetric = mmresult[i];
+          beststate = i;
+        }
+        if (mmresult[i] < minmetric) {
+          minmetric = mmresult[i];
+        }
+      }
+
+      // Trace back
+      for (i = 0, pos = *store_pos; i < (ntraceback - 1); i++) {
+        // Obtain the state from the output bits
+        // by clocking in the output bits in reverse order.
+        // The state has only 6 bits
+        beststate = ppresult[pos][beststate] >> 2;
+        pos = (pos - 1 + ntraceback) % ntraceback;
+      }
+
+      // Store output byte
+      *outbuf = ppresult[pos][beststate];
+
+      for (i = 0; i < 4; i++) {
+        for (j = 0; j < 16; j++) {
+          pp0[(i*16) + j] = 0;
+          mm0[(i*16) + j] = mm0[(i*16) + j] - minmetric;
+        }
+      }
+
+      return bestmetric;
     }
 
   #endif
@@ -97,12 +145,12 @@
 #ifdef EASY_JIT
   #ifdef DTV_SSE2
     unsigned char
-    global_dvbt_viterbi_get_output_sse2(int *store_pos, unsigned char *mmresult, unsigned char ppresult[][64], __m128i *mm0, __m128i *pp0, unsigned char *outbuf, int ntraceback){
+    global_dvbt_viterbi_get_output_sse2(int *store_pos, unsigned char *mmresult, unsigned char ppresult[][64], __m128i *mm0, __m128i *pp0, unsigned char *outbuf, int ntraceback)
+    {
       int i;
       int bestmetric, minmetric;
       int beststate = 0;
       int pos = 0;
-      printf("easy1\n");
       *store_pos = (*store_pos + 1) % ntraceback;
 
       for (i = 0; i < 4; i++) {
@@ -112,7 +160,6 @@
       // Find out the best final state
       bestmetric = mmresult[beststate];
       minmetric = mmresult[beststate];
-      printf("easy2\n");
       for (i = 1; i < 64; i++) {
         if (mmresult[i] > bestmetric) {
           bestmetric = mmresult[i];
@@ -122,7 +169,6 @@
           minmetric = mmresult[i];
         }
       }
-      printf("easy3\n");
       // Trace back
       for (i = 0, pos = *store_pos; i < (ntraceback - 1); i++) {
         // Obtain the state from the output bits
@@ -131,7 +177,6 @@
         beststate = ppresult[pos][beststate] >> 2;
         pos = (pos - 1 + ntraceback) % ntraceback;
       }
-      printf("easy4\n");
       // Store output byte
       *outbuf = ppresult[pos][beststate];
       // Zero out the path variable
@@ -140,18 +185,62 @@
         pp0[i] = _mm_setzero_si128();
         mm0[i] = _mm_sub_epi8(mm0[i], _mm_set1_epi8(minmetric));
       }
-      printf("easy5\n");
       return bestmetric;
     }
 
   #else
     unsigned char
-    global_dvbt_viterbi_get_output_generic(){
+    global_dvbt_viterbi_get_output_generic(int *store_pos, unsigned char *mmresult, unsigned char ppresult[][64], unsigned char *mm0, unsigned char *pp0, unsigned char *outbuf, int ntraceback)
+    {
       int i;
       int bestmetric, minmetric;
       int beststate = 0;
       int pos = 0;
       int j;
+
+      *store_pos = (*store_pos + 1) % ntraceback;
+
+      for (i = 0; i < 4; i++) {
+        for (j = 0; j < 16; j++) {
+          mmresult[(i*16) + j] = mm0[(i*16) + j];
+          ppresult[*store_pos][(i*16) + j] = pp0[(i*16) + j];
+        }
+      }
+
+      // Find out the best final state
+      bestmetric = mmresult[beststate];
+      minmetric = mmresult[beststate];
+
+      for (i = 1; i < 64; i++) {
+        if (mmresult[i] > bestmetric) {
+          bestmetric = mmresult[i];
+          beststate = i;
+        }
+        if (mmresult[i] < minmetric) {
+          minmetric = mmresult[i];
+        }
+      }
+
+      // Trace back
+      for (i = 0, pos = *store_pos; i < (ntraceback - 1); i++) {
+        // Obtain the state from the output bits
+        // by clocking in the output bits in reverse order.
+        // The state has only 6 bits
+        beststate = ppresult[pos][beststate] >> 2;
+        pos = (pos - 1 + ntraceback) % ntraceback;
+      }
+
+      // Store output byte
+      *outbuf = ppresult[pos][beststate];
+
+      for (i = 0; i < 4; i++) {
+        for (j = 0; j < 16; j++) {
+          pp0[(i*16) + j] = 0;
+          mm0[(i*16) + j] = mm0[(i*16) + j] - minmetric;
+        }
+      }
+
+      return bestmetric;      
       
     }
 
@@ -588,7 +677,8 @@ namespace gr {
                                         std::placeholders::_5,
                                         std::placeholders::_6,
                                         ntraceback);
-      opt(&store_pos, mmresult, ppresult, mm0, pp0, outbuf);
+      return opt(&store_pos, mmresult, ppresult, mm0, pp0, outbuf);
+
 
       #endif
 #else
@@ -597,9 +687,18 @@ namespace gr {
     {
 
       #ifdef CLANG_JIT
-
+        return global_dvbt_viterbi_get_output_generic<ntraceback>(&store_pos, mmresult, ppresult, mm0, pp0, outbuf);
       #elif EASY_JIT
-
+        static easy::Cache<> cache;
+        auto const &opt = cache.jit(global_dvbt_viterbi_get_output_generic, 
+                                          std::placeholders::_1,
+                                          std::placeholders::_2,
+                                          std::placeholders::_3,
+                                          std::placeholders::_4,
+                                          std::placeholders::_5,
+                                          std::placeholders::_6,
+                                          ntraceback);
+        return opt(&store_pos, mmresult, ppresult, mm0, pp0, outbuf);
       #endif
 
 #endif
