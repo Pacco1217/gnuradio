@@ -145,7 +145,7 @@
 #ifdef EASY_JIT
   #ifdef DTV_SSE2
     unsigned char
-    global_dvbt_viterbi_get_output_sse2(int *store_pos, unsigned char *mmresult, unsigned char ppresult[][64], __m128i *mm0, __m128i *pp0, unsigned char *outbuf, int ntraceback)
+    global_dvbt_viterbi_get_output_sse2(int *store_pos, unsigned char *mmresult, unsigned char ppresult[][64], __m128i *pp0, unsigned char *outbuf,__m128i *mm0, int ntraceback)
     {
       int i;
       int bestmetric, minmetric;
@@ -677,7 +677,7 @@ namespace gr {
                                         std::placeholders::_5,
                                         std::placeholders::_6,
                                         ntraceback);
-      return opt(&store_pos, mmresult, ppresult, mm0, pp0, outbuf);
+      return opt(&store_pos, mmresult, ppresult, pp0, outbuf, mm0);
 
 
       #endif
